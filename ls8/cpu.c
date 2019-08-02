@@ -11,14 +11,14 @@
  */
 void trace(struct cpu *cpu);
 
-double getcurtime(void)
-{
-    struct timeval tv;
-​
-    gettimeofday(&tv, NULL);
-​
-    return tv.tv_sec + tv.tv_usec / 1000000.0;
-}
+// double getcurtime(void)
+// {
+//     struct timeval tv;
+// ​
+//     gettimeofday(&tv, NULL);
+// ​
+//     return tv.tv_sec + tv.tv_usec / 1000000.0;
+// }
 
 void cpu_load(struct cpu *cpu, char *file_name)
 {
@@ -60,9 +60,37 @@ void alu(struct cpu *cpu, enum alu_op op, unsigned char regA, unsigned char regB
     case ALU_ADD:
       cpu->registers[regA] += cpu->registers[regB];
       break;
+    case ALU_CMP:
+      if (cpu->registers[regA] == cpu->registers[regB]) {
+        cpu->fl = 1;
+      } else if (cpu->registers[regA] > cpu->registers[regB]) {
+        cpu->fl = 2;
+      } else {
+        cpu->fl = 4;
+      }
+      break;
 
-    // TODO: implement more ALU ops
-    // ADD, AND, CMP, DEC, DIV, INC, MOD, MUL, NOT, OR, SHL, SHR, SUB, XOR
+    case ALU_AND:
+      cpu->registers[regA] = cpu->registers[regA] & cpu->registers[regB];
+      break;
+    case ALU_OR:
+      cpu->registers[regA] = cpu->registers[regA] | cpu->registers[regB];
+      break;
+    case ALU_XOR:
+      cpu->registers[regA] = cpu->registers[regA] ^ cpu->registers[regB];
+      break;
+    case ALU_NOT:
+      cpu->registers[regA] = ~(cpu->registers[regA]);
+      break;
+    case ALU_SHL:
+      cpu->registers[regA] = cpu->registers[regA] << cpu->registers[regB];
+      break;
+    case ALU_SHR:
+      cpu->registers[regA] = cpu->registers[regA] >> cpu->registers[regB];
+      break;
+    case ALU_MOD:
+      cpu->registers[regA] = cpu->registers[regA] % cpu->registers[regB];
+      break;
   }
 }
 
@@ -151,6 +179,71 @@ void cpu_run(struct cpu *cpu)
         // Store value in registerB in the address stored in registerA.
         break;
 
+      case CMP:
+        alu(cpu, ALU_CMP, operandA, operandB);
+        cpu->pc += 3;
+        break;
+
+      case JMP:
+        cpu->pc = cpu->registers[operandA];
+        break;
+
+      case JNE:
+        if (cpu->fl != 1) {
+          cpu->pc = cpu->registers[operandA];
+        } else {
+          cpu->pc += 2;
+        }
+        break;
+
+      case JEQ:
+        if (cpu->fl == 1) {
+          cpu->pc = cpu->registers[operandA];
+        } else {
+          cpu->pc += 2;
+        }
+        break;
+
+      case AND:
+        alu(cpu, ALU_AND, operandA, operandB);
+        cpu->pc += 3;
+        break;
+
+      case OR:
+        alu(cpu, ALU_OR, operandA, operandB);
+        cpu->pc += 3;
+        break;
+
+      case XOR:
+        alu(cpu, ALU_XOR, operandA, operandB);
+        cpu->pc += 3;
+        break;
+
+      case NOT:
+        alu(cpu, ALU_NOT, operandA, operandB);
+        cpu->pc += 2;
+        break;
+
+      case SHL:
+        alu(cpu, ALU_SHL, operandA, operandB);
+        cpu->pc += 3;
+        break;
+
+      case SHR:
+        alu(cpu, ALU_SHR, operandA, operandB);
+        cpu->pc += 3;
+        break;
+
+      case MOD:
+        if (cpu->registers[operandB] == 0) {
+          printf("Error: value in register B is 0.\n");
+          exit(1);
+        } else {
+          alu(cpu, ALU_MOD, operandA, operandB);
+          cpu->pc += 3;
+          break;
+        }
+
       default:
         printf("Error: found instruction %x at location %x\n", ir, cpu->pc);
         exit(1);
@@ -165,6 +258,7 @@ void cpu_init(struct cpu *cpu)
 {
   // TODO: Initialize the PC and other special registers
   cpu->pc = 0;
+  cpu->fl = 0;
   memset(cpu->registers, 0, 8);
   memset(cpu->ram, 0, 256);
 }
